@@ -1,0 +1,1087 @@
+//var jQuery = require('jquery');
+//require('../web/jquery.cookie');
+
+//define(['jquery'], function($) {
+
+    (function ($, window, document, undefined) {
+        "use strict";
+
+        var PLUGIN_NAME = "lightShop";
+        var PLUGIN_VERSION = "v1.0";
+
+        var DEFAULTS = {
+            data: [],
+            controlElementPrev: null,
+            controlElementNext: null
+        };
+
+        /**
+         * set basic variables
+         * create options and settings for this instance
+         * @param element - DOM Element the plugin is applied to
+         * @param options - custom settings to be merged with DEFAULTS
+         * @constructor
+         */
+        var LightShop = function (element, options) {
+            this.element = element;
+            this.$t = $(this.element);
+
+            //this.actualPage = 0;
+            this.products = [];
+            //this.showing = false;
+            this.cookieName = 'KN_lightShop_cookie';
+            this.cookieNameForCount = 'KN_lightShop_cookie_count';
+            this.cart = '.lightShopCart';
+            this.cartContainer = '#basket-list';
+            this.formContainer = '#orderFormCnt';
+            this.priceBox = '.finalPriceBoxCnt';
+            this.lang = window.projectConfig.lang;
+
+            this.messages = {
+                'cs': {
+                    'addToCart': 'Koupit',
+                    'inCart': 'V košíku',
+                    'addedToCart': 'Vámi vybraný produkt byl přidán do wishlistu. Po jeho odeslání vás bude Klára a&nbsp;její tým během následujících 7&nbsp;dnů kontaktovat.',
+                    'remove': 'Odebrat',
+                    'title': 'Název',
+                    'variant': 'Varianta',
+                    'count': 'Amount',
+                    'pricePerPiece': 'Cena / ks',
+                    'totalPrice': 'Cena celkem',
+                    'withoutVAT': 'Bez DPH:',
+                    'withVAT': 'Cena celkem:',
+                    'color': 'Barva: ',
+                    'size': 'Velikost',
+                    'finishText': 'Přidáním produktu do wishlistu zjišťujete jeho aktuální dostupnost. Klára a její tým vás budou během následujících 7 dnů kontaktovat.'
+                },
+                'en': {
+                    'addToCart': 'Buy',
+                    'inCart': 'In cart',
+                    'addedToCart': 'Your selected product has been added to the wishlist. After sending, Klara and her team are going contact you within the next 7 days.',
+                    'remove': 'Remove',
+                    'title': 'Title',
+                    'variant': 'Variant',
+                    'count': 'Count',
+                    'pricePerPiece': 'Price / piece',
+                    'totalPrice': 'Total price',
+                    'withoutVAT': 'Price without VAT:',
+                    'withVAT': 'Total price:',
+                    'color': 'Color: ',
+                    'size': 'Size',
+                    'finishText': 'By adding the product to the wishlist you will find its current availability. Klára and her team will contact you within the next 7 days.'
+                },
+                'ru': {
+                    'addToCart': 'Buy',
+                    'inCart': 'In cart',
+                    'addedToCart': 'Item added to cart',
+                    'remove': 'Remove',
+                    'title': 'Title',
+                    'variant': 'Variant',
+                    'count': 'Count',
+                    'pricePerPiece': 'Price / piece',
+                    'totalPrice': 'Total price',
+                    'withoutVAT': 'Price without VAT:',
+                    'withVAT': 'Total price:'
+                },
+                'zh': {
+                    'addToCart': 'Buy',
+                    'inCart': 'In cart',
+                    'addedToCart': 'Item added to cart',
+                    'remove': 'Remove',
+                    'title': 'Title',
+                    'variant': 'Variant',
+                    'count': 'Count',
+                    'pricePerPiece': 'Price / piece',
+                    'totalPrice': 'Total price',
+                    'withoutVAT': 'Price without VAT:',
+                    'withVAT': 'Total price:'
+                },
+                'fr': {
+                    'addToCart': 'Buy',
+                    'inCart': 'In cart',
+                    'addedToCart': 'Item added to cart',
+                    'remove': 'Remove',
+                    'title': 'Title',
+                    'variant': 'Variant',
+                    'count': 'Count',
+                    'pricePerPiece': 'Price / piece',
+                    'totalPrice': 'Total price',
+                    'withoutVAT': 'Price without VAT:',
+                    'withVAT': 'Total price:'
+                },
+                'de': {
+                    'addToCart': 'Buy',
+                    'inCart': 'In cart',
+                    'addedToCart': 'Item added to cart',
+                    'remove': 'Remove',
+                    'title': 'Title',
+                    'variant': 'Variant',
+                    'count': 'Count',
+                    'pricePerPiece': 'Price / piece',
+                    'totalPrice': 'Total price',
+                    'withoutVAT': 'Price without VAT:',
+                    'withVAT': 'Total price:'
+                }
+            };
+
+            // merge options
+            this.options = $.extend(true, {}, DEFAULTS, options);
+            this._defaults = DEFAULTS;
+            this.initialise();
+        };
+
+        /**
+         * init function
+         */
+        LightShop.prototype.initialise = function () {
+            this.handleCookie();
+            this.loadProducts();
+            this.handleListenersForAddToCart();
+            this.handleListenersForRemoveFromCart();
+            this.handleListenersForFinishOrder();
+            this.handleListenersForDeleteCart();
+            this.handleListenersForVariants();
+            this.handleListenersForColors();
+            this.handleListenersForCount();
+            this.checkWishListHeartState();
+        };
+
+        LightShop.prototype.handleCookie = function () {
+            var self = this;
+
+            var date = new Date();
+            var days = 30;
+            date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+
+            if (!$.cookie(this.cookieName)) {
+                $.cookie(this.cookieName, '', {expires: date, path: '/'});
+            } else {
+                var cookieVal = $.cookie(this.cookieName);
+            }
+
+            if (!$.cookie(this.cookieNameForCount)) {
+                $.cookie(this.cookieNameForCount, '', {expires: date, path: '/'});
+            } else {
+                var cookieValForCount = $.cookie(this.cookieNameForCount);
+            }
+        };
+
+        LightShop.prototype.loadProducts = function () {
+            var self = this;
+            var productsArr = [];
+            $.each(this.options.data, function (i, val) {
+                productsArr.push({
+                    id: val.id,
+                    name: val.name,
+                    link: val.link,
+                    nameEn: val.nameEn,
+                    price: val.price.replace(',', '.'),
+                    price_eur: val.price_eur.replace(',', '.'),
+                    thumb: val.thumb,
+                    sizes: val.sizes,
+                    colors: val.colors
+                });
+            });
+
+            var cookieVal = $.cookie(this.cookieName);
+            var cookieValForCount = $.cookie(this.cookieNameForCount);
+
+            this.renderCart(productsArr, cookieVal, cookieValForCount);
+        };
+
+
+        LightShop.prototype.checkWishListHeartState = function () {
+            var cookieVal = $.cookie(this.cookieName);
+            $('.lightShopAddToCart').each(function() {
+                var id = $(this).data('productId');
+                if (cookieVal.indexOf(id) != -1) {
+                    $('.productHeart').addClass('filled');
+                }
+            });
+            $('.lightShopAddToCartFromList').each(function() {
+                var id = $(this).data('productId');
+                if (cookieVal.indexOf(id) != -1) {
+                    $(this).parent().addClass('filledAndVisible');
+                }
+            });
+        };
+
+        LightShop.prototype.handleListenersForAddToCart = function () {
+            var self = this;
+
+            $(document).on('click', '.lightShopAddToCartFromList', function (e) {
+                e.preventDefault();
+                var button = this;
+                var parent = $(this).parent().parent();
+                var id = $(this).data('productId');
+                var count = $(this).data('count');
+                var variant = $(this).data('variant') || null;
+                var color = $(this).data('color') || null;
+                self.addToCart(id, count, variant, color);
+                $(button).attr('disabled', 'disabled');
+                var addTimeout = setTimeout(function() {
+                    $(button).removeAttr('disabled');
+                    $(button).parent().addClass('filledAndVisible');
+                    clearTimeout(addTimeout);
+                }, 2000);
+
+                if (!$.cookie('KN_HintDisplayed')) {
+                    var date = new Date();
+                    var days = 30000;
+                    date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+                    $.cookie('KN_HintDisplayed', 'true', {expires: date, path: '/'});
+                    $.colorbox({html: $("#addProductHint")});
+                }
+            });
+
+            $(document).on('click', '.lightShopAddToCart', function (e) {
+                e.preventDefault();
+                var button = this;
+                var parent = $(this).parent().parent().parent();
+                var id = $(this).data('productId');
+                var count = $('.productCount').data('count');
+                var variant = $('.productSize').data('variant') || null;
+                var color = $('.productColor').data('color') || null;
+                self.addToCart(id, count, variant, color);
+                $('.addPopup').remove();
+                $(parent).append('<p class="addPopup">' + self.messages[self.lang].addedToCart + '</p>');
+                $('.addPopup').fadeIn();
+                $(button).attr('disabled', 'disabled');
+                var addTimeout = setTimeout(function() {
+                    $('.addPopup').fadeOut(400, function() {
+                        $(this).remove();
+                    });
+                    $(button).removeAttr('disabled');
+                    $('.productHeart').addClass('filled');
+                    clearTimeout(addTimeout);
+                }, 2000);
+
+                if (!$.cookie('KN_HintDisplayed')) {
+                    var date = new Date();
+                    var days = 30000;
+                    date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+                    $.cookie('KN_HintDisplayed', 'true', {expires: date, path: '/'});
+                    $.colorbox({html: $("#addProductHint")});
+                }
+            });
+        };
+
+        LightShop.prototype.addToCart = function (id, count, variant, color) {
+
+            var cookieVal = $.cookie(this.cookieName);
+            var cookieValForCount = $.cookie(this.cookieNameForCount);
+            if (cookieVal.indexOf(id + '|' + variant + '|' + color) == -1) {
+                cookieVal += id;
+                cookieVal += '|';
+                cookieVal += variant;
+                cookieVal += '|';
+                cookieVal += color;
+                cookieVal += ',';
+                cookieValForCount += count;
+                cookieValForCount += ',';
+                $.cookie(this.cookieName, cookieVal, {path: '/'});
+                $.cookie(this.cookieNameForCount, cookieValForCount, {path: '/'});
+            } else {
+                cookieVal = cookieVal.slice(0, -1);
+                if (cookieVal.indexOf(',') > -1) {
+                    cookieVal = cookieVal.split(',').map(String);
+                } else {
+                    cookieVal = cookieVal.split().map(String);
+                }
+                cookieValForCount = cookieValForCount.slice(0, -1);
+                if (cookieValForCount.indexOf(',') > -1) {
+                    cookieValForCount = cookieValForCount.split(',').map(Number);
+                } else {
+                    cookieValForCount = cookieValForCount.split().map(Number);
+                }
+                var productIndex = cookieVal.indexOf(id + '|' + variant + '|' + color);
+                var countAbs = Math.abs(count);
+                var actualProductCount = cookieValForCount[productIndex];
+                cookieValForCount[productIndex] = actualProductCount + countAbs;
+
+                cookieVal = cookieVal.toString();
+                if (cookieVal.length > 0) {
+                    cookieVal += ',';
+                }
+                $.cookie(this.cookieName, cookieVal, {path: '/'});
+
+                cookieValForCount = cookieValForCount.toString();
+                if (cookieValForCount.length > 0) {
+                    cookieValForCount += ',';
+                }
+                $.cookie(this.cookieNameForCount, cookieValForCount, {path: '/'});
+            }
+
+            this.loadProducts();
+        };
+
+        LightShop.prototype.handleListenersForRemoveFromCart = function () {
+            var self = this;
+
+            $(document).on('click', '.lightShopRemoveFromCart', function (e) {
+                e.preventDefault();
+                var id = $(this).data('productId');
+                var variant = $(this).data('variant');
+                var color = $(this).data('color');
+                self.removeFromCart(id, variant, color);
+            });
+        };
+
+        LightShop.prototype.removeFromCart = function (id, variant, color) {
+
+            var cookieVal = $.cookie(this.cookieName);
+            var cookieValForCount = $.cookie(this.cookieNameForCount);
+
+            if (cookieVal.indexOf(id + '|' + variant + '|' + color) == -1) {
+
+            } else {
+                cookieVal = cookieVal.slice(0, -1);
+                if (cookieVal.indexOf(',') > -1) {
+                    cookieVal = cookieVal.split(',').map(String);
+                } else {
+                    cookieVal = cookieVal.split().map(String);
+                }
+                var removingProductIndex = cookieVal.indexOf(id + '|' + variant + '|' + color);
+                if (removingProductIndex > -1) {
+                    cookieVal.splice(removingProductIndex, 1);
+                }
+
+                cookieValForCount = cookieValForCount.slice(0, -1);
+                if (cookieValForCount.indexOf(',') > -1) {
+                    cookieValForCount = cookieValForCount.split(',').map(Number);
+                } else {
+                    cookieValForCount = cookieValForCount.split().map(Number);
+                }
+                //var removingProductIndex = cookieVal.indexOf(id);
+                if (removingProductIndex > -1) {
+                    cookieValForCount.splice(removingProductIndex, 1);
+                }
+
+                cookieVal = cookieVal.toString();
+                if (cookieVal.length > 0) {
+                    cookieVal += ',';
+                }
+
+                cookieValForCount = cookieValForCount.toString();
+                if (cookieValForCount.length > 0) {
+                    cookieValForCount += ',';
+                }
+
+                $.cookie(this.cookieName, cookieVal, {path: '/'});
+                $.cookie(this.cookieNameForCount, cookieValForCount, {path: '/'});
+            }
+
+            this.loadProducts();
+        };
+
+        LightShop.prototype.renderCart = function (productsArr, cookieVal, cookieValForCount) {
+            var self = this;
+
+            if ( cookieVal == '' ) {
+                //return false;
+                $(this.formContainer).hide();
+
+            } else {
+                $(this.cartContainer).show();
+                $(this.formContainer).show();
+                $('.noProductInWishList').hide();
+            }
+
+            cookieVal = cookieVal.slice(0, -1);
+            cookieVal = cookieVal.split(',');
+
+            cookieValForCount = cookieValForCount.slice(0, -1);
+            cookieValForCount = cookieValForCount.split(',');
+
+            var cartString = '';
+            var tags = '';
+            var tableHeaderString = '';
+            var finalPriceBoxString = '';
+            var finalOrderBottomString = '';
+            var finalTotalCount = 0;
+            var finalTotalCountWithVAT = 0;
+            var finalTotalCountEUR = 0;
+            var finalTotalCountEURWithVAT = 0;
+            var colorName;
+
+            for (var i = 0; i < cookieVal.length; i++) {
+                for (var j = 0; j < productsArr.length; j++) {
+                    if ( productsArr[j].sizes.length > 0 && productsArr[j].colors.length > 0 ) {
+                        for (var k in productsArr[j].sizes) {
+                            for (var l in productsArr[j].colors) {
+                                if (cookieVal[i] == productsArr[j].id + '|' + productsArr[j].sizes[k].name + '|' + productsArr[j].colors[l].name) {
+                                    cartString += '<tr data-product-id="' + productsArr[j].id + '">';
+                                    cartString += '<td>';
+                                    cartString += '<table class="basketRowCnt">';
+                                    cartString += '<tr>';
+                                    cartString += '<td class="productBasketImgRow">';
+                                    cartString += '<img src="' + productsArr[j].thumb + '" alt="" />';
+                                    cartString += '</td>';
+                                    cartString += '<td class="productBasketNameAndPriceRow">';
+                                    cartString += '<a href="' + productsArr[j].link + '">';
+                                    cartString += productsArr[j].name;
+                                    cartString += '</a>';
+                                    cartString += '<span>';
+                                    cartString += Number(productsArr[j].price).toLocaleString();
+                                    cartString += ' Kč';
+                                    cartString += ' / ';
+                                    cartString += Number(productsArr[j].price_eur).toLocaleString();
+                                    cartString += ' EUR';
+                                    cartString += '</span>';
+                                    cartString += '</td>';
+                                    cartString += '<td class="productBasketSizeRow">';
+                                    cartString += '<span title="' + this.messages[this.lang].size + '">';
+                                    cartString += productsArr[j].sizes[k].name;
+                                    cartString += '</span>';
+                                    cartString += '</td>';
+                                    cartString += '<td class="productBasketColorRow">';
+                                    cartString += '<span>';
+                                    colorName = (productsArr[j].colors[l].name).replace(' ', '-');
+                                    cartString += '<img src="/wp-content/themes/klara/img/colors/' + colorName + '.png" title="' + this.messages[this.lang].color + productsArr[j].colors[l].name + '" alt="' + productsArr[j].colors[l].name + '" />';
+                                    cartString += '</span>';
+                                    cartString += '</td>';
+                                    cartString += '<td class="productBasketCountRow">';
+                                    cartString += '<span title="' + this.messages[this.lang].count + '">';
+                                    cartString += cookieValForCount[i];
+                                    cartString += '</span>';
+                                    cartString += '</td>';
+                                    finalTotalCount += Number(productsArr[j].price * cookieValForCount[i]);
+                                    finalTotalCountEUR += Number(productsArr[j].price_eur * cookieValForCount[i]);
+                                    cartString += '<td class="productBasketPriceRow">';
+                                    cartString += '<strong>';
+                                    cartString += Number(productsArr[j].price * cookieValForCount[i]).toLocaleString();
+                                    cartString += ' Kč';
+                                    cartString += '</strong>';
+                                    cartString += '<strong>';
+                                    cartString += Number(productsArr[j].price_eur * cookieValForCount[i]).toLocaleString();
+                                    cartString += ' EUR';
+                                    finalTotalCountWithVAT += Math.round((productsArr[j].price * cookieValForCount[i] * .79) * 100) / 100;
+                                    finalTotalCountEURWithVAT += Math.round((productsArr[j].price_eur * cookieValForCount[i] * .79) * 100) / 100;
+                                    cartString += '</strong>';
+                                    cartString += '</td>';
+                                    cartString += '<td class="productBasketAddedInfoRow">';
+                                    cartString += '<span>';
+                                    cartString += 'Added in wishlist';
+                                    cartString += '</span>';
+                                    cartString += '</td>';
+                                    cartString += '<td class="productBasketRemoveRow">';
+                                    cartString += '<span class="lightShopRemoveFromCart" data-product-id="' + productsArr[j].id + '" data-variant="' + productsArr[j].sizes[k].name + '" data-color="' + productsArr[j].colors[l].name + '">';
+                                    cartString += this.messages[this.lang].remove;
+                                    cartString += '</span>';
+                                    cartString += '</td>';
+                                    cartString += '</tr>';
+                                    cartString += '</table>';
+                                    cartString += '</td>';
+                                    cartString += '</tr>';
+                                }
+                            }
+                        }
+                    } else if ( productsArr[j].sizes.length > 0 && productsArr[j].colors.length == 0 ) {
+                        for (var k in productsArr[j].sizes) {
+                            if (cookieVal[i] == productsArr[j].id + '|' + productsArr[j].sizes[k].name + '|' + null) {
+                                cartString += '<tr data-product-id="' + productsArr[j].id + '">';
+                                cartString += '<td>';
+                                cartString += '<table class="basketRowCnt">';
+                                cartString += '<tr>';
+                                cartString += '<td class="productBasketImgRow">';
+                                cartString += '<img src="' + productsArr[j].thumb + '" alt="" />';
+                                cartString += '</td>';
+                                cartString += '<td class="productBasketNameAndPriceRow">';
+                                cartString += '<a href="' + productsArr[j].link + '">';
+                                cartString += productsArr[j].name;
+                                cartString += '</a>';
+                                cartString += '<span>';
+                                cartString += Number(productsArr[j].price).toLocaleString();
+                                cartString += ' Kč';
+                                cartString += ' / ';
+                                cartString += Number(productsArr[j].price_eur).toLocaleString();
+                                cartString += ' EUR';
+                                cartString += '</span>';
+                                cartString += '</td>';
+                                cartString += '<td class="productBasketSizeRow">';
+                                cartString += '<span title="' + this.messages[this.lang].size + '">';
+                                cartString += productsArr[j].sizes[k].name;
+                                cartString += '</span>';
+                                cartString += '</td>';
+                                cartString += '<td class="productBasketCountRow">';
+                                cartString += '<span title="' + this.messages[this.lang].count + '">';
+                                cartString += cookieValForCount[i];
+                                cartString += '</span>';
+                                cartString += '</td>';
+                                finalTotalCount += Number(productsArr[j].price * cookieValForCount[i]);
+                                finalTotalCountEUR += Number(productsArr[j].price_eur * cookieValForCount[i]);
+                                cartString += '<td class="productBasketPriceRow">';
+                                cartString += '<strong>';
+                                cartString += Number(productsArr[j].price * cookieValForCount[i]).toLocaleString();
+                                cartString += ' Kč';
+                                cartString += '</strong>';
+                                cartString += '<strong>';
+                                cartString += Number(productsArr[j].price_eur * cookieValForCount[i]).toLocaleString();
+                                cartString += ' EUR';
+                                finalTotalCountWithVAT += Math.round((productsArr[j].price * cookieValForCount[i] * .79) * 100) / 100;
+                                finalTotalCountEURWithVAT += Math.round((productsArr[j].price_eur * cookieValForCount[i] * .79) * 100) / 100;
+                                cartString += '</strong>';
+                                cartString += '</td>';
+                                cartString += '<td class="productBasketAddedInfoRow">';
+                                cartString += '<span>';
+                                cartString += 'Added in wishlist';
+                                cartString += '</span>';
+                                cartString += '</td>';
+                                cartString += '<td class="productBasketRemoveRow">';
+                                cartString += '<span class="lightShopRemoveFromCart" data-product-id="' + productsArr[j].id + '" data-variant="' + productsArr[j].sizes[k].name + '" data-color="null">';
+                                cartString += this.messages[this.lang].remove;
+                                cartString += '</span>';
+                                cartString += '</td>';
+                                cartString += '</tr>';
+                                cartString += '</table>';
+                                cartString += '</td>';
+                                cartString += '</tr>';
+                            }
+                        }
+                    } else if ( productsArr[j].sizes.length == 0 && productsArr[j].colors.length > 0 ) {
+                        for (var k in productsArr[j].colors) {
+                            if (cookieVal[i] == productsArr[j].id + '|' + null + '|' + productsArr[j].colors[k].name) {
+                                cartString += '<tr data-product-id="' + productsArr[j].id + '">';
+                                cartString += '<td>';
+                                cartString += '<table class="basketRowCnt">';
+                                cartString += '<tr>';
+                                cartString += '<td class="productBasketImgRow">';
+                                cartString += '<img src="' + productsArr[j].thumb + '" alt="" />';
+                                cartString += '</td>';
+                                cartString += '<td class="productBasketNameAndPriceRow">';
+                                cartString += '<a href="' + productsArr[j].link + '">';
+                                cartString += productsArr[j].name;
+                                cartString += '</a>';
+                                cartString += '<span>';
+                                cartString += Number(productsArr[j].price).toLocaleString();
+                                cartString += ' Kč';
+                                cartString += ' / ';
+                                cartString += Number(productsArr[j].price_eur).toLocaleString();
+                                cartString += ' EUR';
+                                cartString += '</span>';
+                                cartString += '</td>';
+                                cartString += '<td class="productBasketColorRow">';
+                                cartString += '<span>';
+                                colorName = (productsArr[j].colors[k].name).replace(' ', '-');
+                                cartString += '<img src="/wp-content/themes/klara/img/colors/' + colorName + '.png" title="' + this.messages[this.lang].color + productsArr[j].colors[k].name + '" alt="' + productsArr[j].colors[k].name + '" />';
+                                cartString += '</span>';
+                                cartString += '</td>';
+                                cartString += '<td class="productBasketCountRow">';
+                                cartString += '<span title="' + this.messages[this.lang].count + '">';
+                                cartString += cookieValForCount[i];
+                                cartString += '</span>';
+                                cartString += '</td>';
+                                finalTotalCount += Number(productsArr[j].price * cookieValForCount[i]);
+                                finalTotalCountEUR += Number(productsArr[j].price_eur * cookieValForCount[i]);
+                                cartString += '<td class="productBasketPriceRow">';
+                                cartString += '<strong>';
+                                cartString += (productsArr[j].price * cookieValForCount[i]).toLocaleString();
+                                cartString += ' Kč';
+                                cartString += '</strong>';
+                                cartString += '<strong>';
+                                cartString += Number(productsArr[j].price_eur * cookieValForCount[i]).toLocaleString();
+                                cartString += ' EUR';
+                                finalTotalCountWithVAT += Math.round((productsArr[j].price * cookieValForCount[i] * .79) * 100) / 100;
+                                finalTotalCountEURWithVAT += Math.round((productsArr[j].price_eur * cookieValForCount[i] * .79) * 100) / 100;
+                                cartString += '</strong>';
+                                cartString += '</td>';
+                                cartString += '<td class="productBasketAddedInfoRow">';
+                                cartString += '<span>';
+                                cartString += 'Added in wishlist';
+                                cartString += '</span>';
+                                cartString += '</td>';
+                                cartString += '<td class="productBasketRemoveRow">';
+                                cartString += '<span class="lightShopRemoveFromCart" data-product-id="' + productsArr[j].id + '" data-variant="null" data-color="' + productsArr[j].colors[k].name + '">';
+                                cartString += this.messages[this.lang].remove;
+                                cartString += '</span>';
+                                cartString += '</td>';
+                                cartString += '</tr>';
+                                cartString += '</table>';
+                                cartString += '</td>';
+                                cartString += '</tr>';
+                            }
+                        }
+                    } else {
+                        if (cookieVal[i] == productsArr[j].id + '|' + null + '|' + null) {
+                            cartString += '<tr data-product-id="' + productsArr[j].id + '">';
+                            cartString += '<td>';
+                            cartString += '<table class="basketRowCnt">';
+                            cartString += '<tr>';
+                            cartString += '<td class="productBasketImgRow">';
+                            cartString += '<img src="' + productsArr[j].thumb + '" alt="" />';
+                            cartString += '</td>';
+                            cartString += '<td class="productBasketNameAndPriceRow">';
+                            cartString += '<a href="' + productsArr[j].link + '">';
+                            cartString += productsArr[j].name;
+                            cartString += '</a>';
+                            cartString += '<span>';
+                            cartString += Number(productsArr[j].price).toLocaleString();
+                            cartString += ' Kč';
+                            cartString += ' / ';
+                            cartString += Number(productsArr[j].price_eur).toLocaleString();
+                            cartString += ' EUR';
+                            cartString += '</span>';
+                            cartString += '</td>';
+                            cartString += '<td class="productBasketCountRow">';
+                            cartString += '<span title="' + this.messages[this.lang].count + '">';
+                            cartString += cookieValForCount[i];
+                            cartString += '</span>';
+                            cartString += '</td>';
+                            finalTotalCount += Number(productsArr[j].price * cookieValForCount[i]);
+                            finalTotalCountEUR += Number(productsArr[j].price_eur * cookieValForCount[i]);
+                            cartString += '<td class="productBasketPriceRow">';
+                            cartString += '<strong>';
+                            cartString += (productsArr[j].price * cookieValForCount[i]).toLocaleString();
+                            cartString += ' Kč';
+                            cartString += '</strong>';
+                            cartString += '<strong>';
+                            cartString += Number(productsArr[j].price_eur * cookieValForCount[i]).toLocaleString();
+                            cartString += ' EUR';
+                            finalTotalCountWithVAT += Math.round((productsArr[j].price * cookieValForCount[i] * .79) * 100) / 100;
+                            finalTotalCountEURWithVAT += Math.round((productsArr[j].price_eur * cookieValForCount[i] * .79) * 100) / 100;
+                            cartString += '</strong>';
+                            cartString += '</td>';
+                            cartString += '<td class="productBasketAddedInfoRow">';
+                            cartString += '<span>';
+                            cartString += 'Added in wishlist';
+                            cartString += '</span>';
+                            cartString += '</td>';
+                            cartString += '<td class="productBasketRemoveRow">';
+                            cartString += '<span class="lightShopRemoveFromCart" data-product-id="' + productsArr[j].id + '" data-variant="null" data-color="null">';
+                            cartString += this.messages[this.lang].remove;
+                            cartString += '</span>';
+                            cartString += '</td>';
+                            cartString += '</tr>';
+                            cartString += '</table>';
+                            cartString += '</td>';
+                            cartString += '</tr>';
+                        }
+                    }
+                }
+            }
+
+            finalPriceBoxString += '';
+            finalPriceBoxString += '<div class="finalPriceBox col-xs-12">';
+            finalPriceBoxString += '<p>';
+            finalPriceBoxString += '<span>';
+            finalPriceBoxString += 'Total';
+            finalPriceBoxString += '</span>';
+            finalPriceBoxString += '<strong class="finalTotalPrice">';
+            finalPriceBoxString += ' ';
+            finalPriceBoxString += Number(finalTotalCount).toLocaleString();
+            finalPriceBoxString += ' ';
+            finalPriceBoxString += 'Kč';
+            finalPriceBoxString += ' / ';
+            finalPriceBoxString += Number(finalTotalCountEUR).toLocaleString();
+            finalPriceBoxString += ' ';
+            finalPriceBoxString += 'EUR';
+            finalPriceBoxString += '</strong>';
+            finalPriceBoxString += '</p>';
+            finalPriceBoxString += '</div>';
+
+            finalOrderBottomString += '';
+            finalOrderBottomString += '<strong>';
+            finalOrderBottomString += 'Total';
+            finalOrderBottomString += '</strong>';
+            finalOrderBottomString += '<strong class="finalTotalPrice">';
+            finalOrderBottomString += ' ';
+            finalOrderBottomString += Number(finalTotalCount).toLocaleString();
+            finalOrderBottomString += ' ';
+            finalOrderBottomString += 'Kč';
+            finalOrderBottomString += ' / ';
+            finalOrderBottomString += Number(finalTotalCountEUR).toLocaleString();
+            finalOrderBottomString += ' ';
+            finalOrderBottomString += 'EUR';
+            finalOrderBottomString += '</strong>';
+
+            if (cartString.length == 0) {
+                $(this.cartContainer).hide();
+            } else {
+                $(this.cartContainer).show();
+            }
+
+            $(this.cart).html(cartString);
+            $('.orderFormBottomTotal').html(finalOrderBottomString);
+
+            if ($(this.priceBox).length > 0) {
+                $(this.priceBox).html(finalPriceBoxString);
+
+
+            } else {
+                var finalPriceBoxStringExtended = '';
+                finalPriceBoxStringExtended += '<div class="finalPriceBoxCnt row">';
+                finalPriceBoxStringExtended += finalPriceBoxString;
+                finalPriceBoxStringExtended += '</div>';
+                $(this.cartContainer).append(finalPriceBoxStringExtended);
+            }
+
+            if ( cookieVal == '' ) {
+                $('.wishListIcon .wishListCount').text(0);
+            } else {
+                $('.wishListIcon .wishListCount').text(i);
+            }
+
+            $('.wishlist #orderFormCnt').each(function() {
+                self.finishOrder();
+            });
+        };
+
+        LightShop.prototype.handleListenersForCount = function () {
+            var target = $('ul.productCount');
+            var targetActualPosition = 0;
+            var targetActualPositionValue;
+
+            $(document).on('click', '.productCountArrowDown', function() {
+                var self = this;
+
+                if( $(target).is(':animated') ) {
+                    return false;
+                }
+
+                var oppositeArrow = $('.productCountArrowUp');
+                var elHeight = $('li', target).height();
+                var targetMargin = parseInt($(target).css('margin-top'));
+
+                $(target).animate({'margin-top' : targetMargin + elHeight + 'px'}, 300, function() {
+                    targetActualPosition--;
+                    targetActualPositionValue = $('li:eq(' + targetActualPosition + ')', target).data('liCount');
+                    $(target).data('count', targetActualPositionValue);
+                    var actualMarginTop = parseInt($(this).css('margin-top'));
+                    $(oppositeArrow).removeClass('disabled');
+                    if ( Math.abs(actualMarginTop) == 0 ) {
+                        $(self).addClass('disabled');
+                    } else {
+                        $(self).removeClass('disabled');
+                    }
+                });
+            });
+
+            $(document).on('click', '.productCountArrowUp', function() {
+                var self = this;
+
+                if( $(target).is(':animated') ) {
+                    return false;
+                }
+
+                var oppositeArrow = $('.productCountArrowDown');
+                var elHeight = $('li', target).height();
+                var targetHeight = $(target).height();
+                var targetMargin = parseInt($(target).css('margin-top'));
+
+                $(target).animate({'margin-top' : targetMargin - elHeight + 'px'}, 300, function() {
+                    targetActualPosition++;
+                    targetActualPositionValue = $('li:eq(' + targetActualPosition + ')', target).data('liCount');
+                    $(target).data('count', targetActualPositionValue);
+                    var actualMarginTop = parseInt($(this).css('margin-top'));
+                    $(oppositeArrow).removeClass('disabled');
+                    if ( Math.abs(actualMarginTop - elHeight) == targetHeight ) {
+                        $(self).addClass('disabled');
+                    } else {
+                        $(self).removeClass('disabled');
+                    }
+                });
+            });
+        };
+
+        LightShop.prototype.handleListenersForVariants = function () {
+            var target = $('.productSize');
+            var targetSize = $('li', target).size();
+            var targetActualPosition = 0;
+            var targetActualPositionValue;
+
+            $(document).on('click', '.productSizeArrowUp', function() {
+                var self = this;
+
+                if( $(target).is(':animated') ) {
+                    return false;
+                }
+
+                var oppositeArrow = $('.productSizeArrowDown');
+                var elHeight = $('li', target).height();
+                var targetHeight = $(target).height();
+                var targetMargin = parseInt($(target).css('margin-top'));
+
+                $(target).animate({'margin-top' : targetMargin + elHeight + 'px'}, 300, function() {
+                    targetActualPosition--;
+                    targetActualPositionValue = $('li:eq(' + targetActualPosition + ')', target).data('liVariant');
+                    $(target).data('variant', targetActualPositionValue);
+                    var actualMarginTop = parseInt($(this).css('margin-top'));
+                    $(oppositeArrow).removeClass('disabled');
+                    if ( Math.abs(actualMarginTop) == 0 ) {
+                        $(self).addClass('disabled');
+                    } else {
+                        $(self).removeClass('disabled');
+                    }
+                });
+            });
+
+            $(document).on('click', '.productSizeArrowDown', function() {
+                var self = this;
+
+                if( $(target).is(':animated') ) {
+                    return false;
+                }
+
+                var oppositeArrow = $('.productSizeArrowUp');
+                var elHeight = $('li', target).height();
+                var targetHeight = $(target).height();
+                var targetMargin = parseInt($(target).css('margin-top'));
+
+                $(target).animate({'margin-top' : targetMargin - elHeight + 'px'}, 300, function() {
+                    targetActualPosition++;
+                    targetActualPositionValue = $('li:eq(' + targetActualPosition + ')', target).data('liVariant');
+                    $(target).data('variant', targetActualPositionValue);
+                    var actualMarginTop = parseInt($(this).css('margin-top'));
+                    $(oppositeArrow).removeClass('disabled');
+                    if ( Math.abs(actualMarginTop - elHeight) == targetHeight ) {
+                        $(self).addClass('disabled');
+                    } else {
+                        $(self).removeClass('disabled');
+                    }
+                });
+            });
+        };
+
+        LightShop.prototype.handleListenersForColors = function () {
+
+            $(document).on('click', '.productColor li', function() {
+                var self = this;
+                var color = $(this).data('liColor');
+                $('.productColor li').removeClass('active');
+                $(this).addClass('active');
+                $('.productColor').attr('data-color', color);
+            });
+        };
+
+        LightShop.prototype.handleListenersForFinishOrder = function () {
+            var self = this;
+
+            $('.wishlist #orderFormCnt').each(function() {
+                self.finishOrder();
+            });
+
+            /*$(document).on('submit', '#orderFormCnt form', function (e) {
+                self.finishOrder();
+            });*/
+        };
+
+        LightShop.prototype.finishOrder = function () {
+            var self = this;
+            //dodělat přidání dat z cookie k emailu
+
+            var productsArr = [];
+
+          $.each(this.options.data, function (i, val) {
+            productsArr.push({
+              id: val.id,
+              name: val.name,
+              link: val.link,
+              nameEn: val.nameEn,
+              price: val.price.replace(',', '.'),
+              thumb: val.thumb,
+              sizes: val.sizes,
+              colors: val.colors
+            });
+          });
+
+            var cookieVal = $.cookie(this.cookieName);
+            var cookieValForCount = $.cookie(this.cookieNameForCount);
+
+            cookieVal = cookieVal.slice(0, -1);
+            if (cookieVal.indexOf(',') > -1) {
+                cookieVal = cookieVal.split(',').map(String);
+            } else {
+                cookieVal = cookieVal.split().map(String);
+            }
+
+            cookieValForCount = cookieValForCount.slice(0, -1);
+            if (cookieValForCount.indexOf(',') > -1) {
+                cookieValForCount = cookieValForCount.split(',').map(Number);
+            } else {
+                cookieValForCount = cookieValForCount.split().map(Number);
+            }
+
+            var textCartStringForMail = '';
+            var finalTextPriceBoxStringForMail = '';
+            var finalTotalCount = 0;
+            var finalTotalCountWithVAT = 0;
+
+            for (var m = 0; m < cookieVal.length; m++) {
+                for (var n = 0; n < productsArr.length; n++) {
+                    if ( productsArr[n].sizes.length > 0 && productsArr[n].colors.length > 0 ) {
+                        for (var o in productsArr[n].sizes) {
+                            for (var p in productsArr[n].colors) {
+                                if (cookieVal[m] == productsArr[n].id + '|' + productsArr[n].sizes[o].name + '|' + productsArr[n].colors[p].name) {
+                                    textCartStringForMail += 'Název produktu: ';
+                                    textCartStringForMail += productsArr[n].name;
+                                    finalTotalCount += Number(productsArr[n].price * cookieValForCount[m]);
+                                    finalTotalCountWithVAT += Math.round((productsArr[n].price * cookieValForCount[m] * .79) * 100) / 100;
+                                    textCartStringForMail += ', ';
+                                    textCartStringForMail += 'Varianta: ';
+                                    textCartStringForMail += productsArr[n].sizes[o].name;
+                                    textCartStringForMail += ', ';
+                                    textCartStringForMail += 'Barva: ';
+                                    textCartStringForMail += productsArr[n].colors[p].name;
+                                    textCartStringForMail += ', ';
+                                    textCartStringForMail += 'Množství: ';
+                                    textCartStringForMail += parseFloat(cookieValForCount[m]);
+                                    textCartStringForMail += ', ';
+                                    textCartStringForMail += 'Cena: ';
+                                    textCartStringForMail += Number(productsArr[n].price).toLocaleString();
+                                    textCartStringForMail += ' Kč';
+                                    textCartStringForMail += ', ';
+                                    textCartStringForMail += 'Cena celkem za produkt: ';
+                                    textCartStringForMail += parseFloat(productsArr[n].price * cookieValForCount[m]).toLocaleString();
+                                    textCartStringForMail += ' Kč';
+                                    textCartStringForMail += '\r\n';
+                                }
+                            }
+                        }
+                    } else if ( productsArr[n].sizes.length > 0 && productsArr[n].colors.length == 0 ) {
+                        for (var o in productsArr[n].sizes) {
+                            if (cookieVal[m] == productsArr[n].id + '|' + productsArr[n].sizes[o].name + '|' + null) {
+                                textCartStringForMail += 'Název produktu: ';
+                                textCartStringForMail += productsArr[n].name;
+                                finalTotalCount += Number(productsArr[n].price * cookieValForCount[m]);
+                                finalTotalCountWithVAT += Math.round((productsArr[n].price * cookieValForCount[m] * .79) * 100) / 100;
+                                textCartStringForMail += ', ';
+                                textCartStringForMail += 'Varianta: ';
+                                textCartStringForMail += productsArr[n].sizes[o].name;
+                                textCartStringForMail += ', ';
+                                textCartStringForMail += 'Množství: ';
+                                textCartStringForMail += parseFloat(cookieValForCount[m]);
+                                textCartStringForMail += ', ';
+                                textCartStringForMail += 'Cena: ';
+                                textCartStringForMail += Number(productsArr[n].price).toLocaleString();
+                                textCartStringForMail += ' Kč';
+                                textCartStringForMail += ', ';
+                                textCartStringForMail += 'Cena celkem za produkt: ';
+                                textCartStringForMail += parseFloat(productsArr[n].price * cookieValForCount[m]).toLocaleString();
+                                textCartStringForMail += ' Kč';
+                                textCartStringForMail += '\r\n';
+                            }
+                        }
+                    } else if ( productsArr[n].sizes.length == 0 && productsArr[n].colors.length > 0 ) {
+                        for (var o in productsArr[n].colors) {
+                            if (cookieVal[m] == productsArr[n].id + '|' + null + '|' + productsArr[n].colors[o].name) {
+                                textCartStringForMail += 'Název produktu: ';
+                                textCartStringForMail += productsArr[n].name;
+                                finalTotalCount += Number(productsArr[n].price * cookieValForCount[m]);
+                                finalTotalCountWithVAT += Math.round((productsArr[n].price * cookieValForCount[m] * .79) * 100) / 100;
+                                textCartStringForMail += ', ';
+                                textCartStringForMail += 'Barva: ';
+                                textCartStringForMail += productsArr[n].colors[o].name;
+                                textCartStringForMail += ', ';
+                                textCartStringForMail += 'Množství: ';
+                                textCartStringForMail += parseFloat(cookieValForCount[m]);
+                                textCartStringForMail += ', ';
+                                textCartStringForMail += 'Cena: ';
+                                textCartStringForMail += Number(productsArr[n].price).toLocaleString();
+                                textCartStringForMail += ' Kč';
+                                textCartStringForMail += ', ';
+                                textCartStringForMail += 'Cena celkem za produkt: ';
+                                textCartStringForMail += parseFloat(productsArr[n].price * cookieValForCount[m]).toLocaleString();
+                                textCartStringForMail += ' Kč';
+                                textCartStringForMail += '\r\n';
+                            }
+                        }
+                    } else {
+                        if (cookieVal[m] == productsArr[n].id + '|' + null + '|' + null) {
+                            textCartStringForMail += 'Název produktu: ';
+                            textCartStringForMail += productsArr[n].name;
+                            finalTotalCount += Number(productsArr[n].price * cookieValForCount[m]);
+                            finalTotalCountWithVAT += Math.round((productsArr[n].price * cookieValForCount[m] * .79) * 100) / 100;
+                            textCartStringForMail += ', ';
+                            textCartStringForMail += 'Množství: ';
+                            textCartStringForMail += parseFloat(cookieValForCount[m]);
+                            textCartStringForMail += ', ';
+                            textCartStringForMail += 'Cena: ';
+                            textCartStringForMail += Number(productsArr[n].price).toLocaleString();
+                            textCartStringForMail += ' Kč';
+                            textCartStringForMail += ', ';
+                            textCartStringForMail += 'Cena celkem za produkt: ';
+                            textCartStringForMail += parseFloat(productsArr[n].price * cookieValForCount[m]).toLocaleString();
+                            textCartStringForMail += ' Kč';
+                            textCartStringForMail += '\r\n';
+                        }
+                    }
+                }
+            }
+
+            finalTextPriceBoxStringForMail += '';
+            finalTextPriceBoxStringForMail += textCartStringForMail;
+            finalTextPriceBoxStringForMail += this.messages[this.lang].withVAT;
+            finalTextPriceBoxStringForMail += ' ';
+            finalTextPriceBoxStringForMail += parseFloat(finalTotalCount).toLocaleString();
+            finalTextPriceBoxStringForMail += ' ';
+            finalTextPriceBoxStringForMail += 'Kč';
+
+            $('textarea[name="souhrn"]').val(finalTextPriceBoxStringForMail);
+        };
+
+        LightShop.prototype.handleListenersForDeleteCart = function () {
+            var self = this;
+
+            $(document).on('KN_lightShop_deleteCart', function () {
+            //$(document).on('submit', '#orderFormCnt form', function () {
+                self.deleteCart();
+                $('.noProductInWishList').text(self.messages[self.lang].finishText).show();
+            });
+        };
+
+        LightShop.prototype.deleteCart = function () {
+            var self = this;
+
+            var cookieVal = $.cookie(this.cookieName);
+
+            $.cookie(this.cookieName, '', {path: '/'});
+            $.cookie(this.cookieNameForCount, '', {path: '/'});
+
+            this.loadProducts();
+        };
+
+        /**
+         * decide, which methods will be "public"
+         */
+        var API = {
+            //method: PluginSkeleton.prototype.method
+            //loadMarkers: GoogleMap.prototype.loadMarkers
+        };
+
+        /**
+         * plugin go live
+         * @param value - first param - decides, which action shall be executed
+         *    if object - apply plugin with these settings to an selector's elements, if they are clean (plugin not applied yet)
+         *    if string && in API object - run method named as this value with all args[index > 0]
+         * @return {*}
+         */
+        $.fn[PLUGIN_NAME] = function (value) {
+            var args = arguments;
+
+            return this.each(function () {
+                var $this = $(this);
+
+                // get plugin instance
+                var plugin = $this.data('plugin_' + PLUGIN_NAME);
+
+                // if there's not, create one
+                if (!plugin) {
+                    plugin = new LightShop(this, value);
+                    $this.data('plugin_' + PLUGIN_NAME, plugin);
+                }
+                // if there is and first parameter is in predefined API methods, call it with rest of params
+                else if (API[value]) {
+                    plugin[value].apply(plugin, Array.prototype.slice.call(args, 1));
+                }
+            });
+        };
+
+        /**
+         * setDefaults with $.pluginSkeleton.setDefaults();
+         */
+        $[PLUGIN_NAME] = $.fn[PLUGIN_NAME];
+        $[PLUGIN_NAME].setDefaults = function (newOptions) {
+            DEFAULTS = $.extend(true, {}, DEFAULTS, newOptions);
+        };
+    })(jQuery, window, document);
+//});
