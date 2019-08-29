@@ -64,8 +64,20 @@
 }
 .flex-item1 {background: white;
   padding: 15px;
-  width: 300px;
   margin-top: 10px;
+  display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.flex-item1 .description {
+  display: flex;
+  flex-flow: column;
+  justify-content: center;
+}
+
+.flex-item1 p {
+  text-align: center;
 }
 .flex-item2 {background: white;
   padding: 15px;
@@ -92,6 +104,10 @@
   font-weight: bold;
   font-size: 3em;
   text-align: center;
+
+  display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
 footer {
@@ -127,7 +143,8 @@ footer .content {
 }
 body {
   text-align: center; 
-  font-family:century gotic ;
+  font-family:century gotic;
+  overflow-x: hidden;
 }
 
 #carouselExampleSlidesOnly img {
