@@ -67,21 +67,17 @@
 .flex-item1 {background: white;
   padding: 15px;
   width: 300px;
-  height: 230px;
   margin-top: 10px;
-  
 }
 .flex-item2 {background: white;
   padding: 15px;
   width: 300px;
-  height: 230px;
   margin-top: 10px;
   
 }
 .flex-item3 {background: white;
   padding: 15px;
   width: 300px;
-  height: 230px;
   margin-top: 10px;
   
 }
@@ -91,6 +87,7 @@
   width: 300px;
   height: 230px;
   margin-top: 10px;
+  margin-bottom: 100px;
   
   line-height: 150px;
   color: white;
