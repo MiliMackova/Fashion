@@ -7,7 +7,12 @@
     text-align: center; 
 }
 body {
-    text-align: center;
+    text-align: center; 
     font-family:century gotic ;
+}
+
+#carouselExampleSlidesOnly img {
+    max-height: 500px;
+    margin: auto;
 }
 
