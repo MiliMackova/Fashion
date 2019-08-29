@@ -73,7 +73,6 @@
 .flex-item1 .description {
   display: flex;
   flex-flow: column;
-  justify-content: center;
 }
 
 .flex-item1 p {

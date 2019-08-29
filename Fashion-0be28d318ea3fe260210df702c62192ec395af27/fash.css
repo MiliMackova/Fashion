@@ -1,0 +1,18 @@
+* {
+    color:black;
+    border: 1px;
+    margin: 2px;
+    padding: 2px;
+    background-color: rgb(223, 215, 194));
+    text-align: center; 
+}
+body {
+    text-align: center; 
+    font-family:century gotic ;
+}
+
+#carouselExampleSlidesOnly img {
+    max-height: 500px;
+    margin: auto;
+}
+
