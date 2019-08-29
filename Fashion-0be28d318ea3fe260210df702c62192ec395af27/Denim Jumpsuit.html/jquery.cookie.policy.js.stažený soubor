@@ -1,0 +1,226 @@
+(function($, window, document, undefined ) {
+    "use strict";
+
+    var PLUGIN_NAME = "cookiesPolicy";
+    var PLUGIN_VERSION = "v1.1";
+
+    var	DEFAULTS = {
+        lang: 'en',
+        position: 'top',
+		disableCss: false,
+		emulateBootstrap3: false,
+        template: function(data) {
+            return  '<div id="cookiesPolicyCnt"><div class="container"><div class="row"><div class="col-xxs-12 col-sm-6">\n' +
+                '<p>' + data.text +
+                '</p></div>' +
+                '<div class="col-xxs-12 col-sm-6"><ul class="clearfix">\n'+
+                '<li><a class="js_acceptCookies btn-white" href="javascript:void(0)">' + data.accept + '</a></li>\n' +
+                '<li><a class="btn" href="' + data.link + '" target="_blank">' + data.linkText + '</a></li>\n' +
+                '</ul></div>\n' +
+                '</div></div></div></div>';
+        },
+        messages: {
+            'cs': {
+                text: 'Tento web používá k poskytování služeb, personalizaci reklam a analýze návštěvnosti soubory cookie. Používáním tohoto webu s&nbsp;jejich použitím souhlasíte.',
+				link: 'https://cs.wikipedia.org/wiki/HTTP_cookie',
+				linkText: 'Více informací',
+                accept: 'Rozumím'
+            },
+			'en': {
+                text: 'This website uses to provide services, personalize ads, and analyzing visitor cookies. By using this site, you agree to their use.',
+				link: 'https://en.wikipedia.org/wiki/HTTP_cookie',
+				linkText: 'More info',
+                accept: 'I agree'
+            },
+			'de': {
+                text: 'Diese Website benutzt, um Dienstleistungen zu erbringen, personifizieren Anzeigen und Analysieren Besucher Cookies. Durch die Nutzung dieser Website erklären Sie sich mit ihrer Verwendung.',
+				link: 'https://de.wikipedia.org/wiki/HTTP-Cookie',
+				linkText: 'Mehr Infos',
+                accept: 'Ich akzeptiere'
+            },
+			'ru': {
+				text: 'Данный сайт использует для предоставления услуг, персонализировать рекламу, и посетителя анализ печенье. Используя этот сайт, Вы соглашаетесь с их использованием.',
+				link: 'https://ru.wikipedia.org/wiki/HTTP_cookie',
+				linkText: 'Подробнее',
+				accept: 'Я согласен'
+			},
+			'pl': {
+				text: 'Ta strona wykorzystuje do świadczenia usług, personalizacji reklam i plików cookie analizowanie odwiedzin. Korzystając z tej strony, wyrażasz zgodę na ich wykorzystanie.',
+				link: 'https://pl.wikipedia.org/wiki/HTTP_cookie',
+				linkText: 'Więcej informacji',
+				accept: 'Rozumieć'
+			}
+        },
+
+		// no need to edit, there are always default values
+		containerId: null,
+		cookieName: 'koia_cookie_policy'
+    };
+
+    /**
+     *
+     * @param element
+     * @param options
+     * @constructor
+     */
+    var CookiesPolicy = function ( element, options ) {
+        this.element = element;
+		this.$t = $(this.element);
+
+		this.state = {
+			accepted: false
+		};
+		this.$banner = null;
+
+        this.options = $.extend(true, {}, DEFAULTS, options );
+        this._defaults = DEFAULTS;
+
+        this.initialise_();
+    };
+
+    /**
+     * Init function - read options.cookieName status,
+     * @private
+     */
+    CookiesPolicy.prototype.initialise_ = function() {
+		if (!navigator.cookieEnabled) {
+			return false;
+		}
+		this.checkCookieAccepted_();
+
+		if (!this.state.accepted) {
+			this.renderBanner_();
+			this.bindEvents_();
+		}
+    };
+
+	CookiesPolicy.prototype.renderBanner_ = function() {
+		this.$banner = $(this.buildBannerCode_());
+		var fixedPosition = {};
+		if (this.options.position == 'top') {
+			this.$banner.prependTo(this.$t);
+			fixedPosition = { 'top': 0 };
+		} else {
+			this.$banner.appendTo(this.$t);
+			fixedPosition = { 'bottom': 0 };
+		}
+
+		if (!this.options.disableCss) {
+			this.applyBannerStyles_(fixedPosition);
+			this.applyAnchorsStyles_();
+
+			if (this.options.emulateBootstrap3) {
+				this.emulateBootstrap3_();
+			}
+		}
+
+		this.$acceptButton = $('a.js_acceptCookies', this.$banner);
+
+	};
+
+	CookiesPolicy.prototype.buildBannerCode_ = function() {
+		return this.options.template($.extend(true, {}, {contId: this.options.containerId || PLUGIN_NAME }, this.options.messages[this.options.lang]));
+	};
+
+	CookiesPolicy.prototype.applyBannerStyles_ = function(posCss) {
+		this.$banner.css($.extend(true, {}, posCss, this.options.css.panel));
+	};
+
+	CookiesPolicy.prototype.applyAnchorsStyles_ = function() {
+		var self_ = this;
+		$('a', this.$banner).css({
+			'color': self_.options.css.brandColor
+		});
+
+		$('.js_buttonStyle', this.$banner).css({
+			'background': self_.options.css.brandColor,
+			'text-decoration': 'none'
+		}).css(this.options.css.button);
+	};
+
+	/**
+	 * emulates bootstrap 3 styles on container and col-xx-x divs
+	 * @private
+	 */
+	CookiesPolicy.prototype.emulateBootstrap3_ = function() {
+		var self_ = this;
+		$('.container', this.$banner).css(self_.options.css.emulateBootstrap3.container || {});
+		$('.js_fallbackStyle1', this.$banner).css(self_.options.css.emulateBootstrap3.leftCol || {});
+		$('.js_fallbackStyle2', this.$banner).css(self_.options.css.emulateBootstrap3.rightCol || {});
+	};
+
+	CookiesPolicy.prototype.bindEvents_ = function() {
+		var self_ = this;
+		if (this.$acceptButton instanceof $) {
+			this.$acceptButton.on('click', function(event) {
+				event.preventDefault();
+				self_.setCookieAccepted_();
+				self_.destroy_();
+			});
+		}
+	};
+
+	/**
+	 * updates internal state - saves value under the key to the this.state object
+	 * @param key
+	 * @param value
+     * @private
+     */
+	CookiesPolicy.prototype.updateState_ = function(key, value) {
+		this.state[key] = value;
+	};
+
+	/**
+	 * reads cookie and sets internal state
+	 * @private
+     */
+	CookiesPolicy.prototype.checkCookieAccepted_ = function() {
+		this.updateState_('accepted', $.cookie(this.options.cookieName) == '1');
+	};
+
+	CookiesPolicy.prototype.setCookieAccepted_ = function() {
+		$.cookie(this.options.cookieName, '1', { path: '/', expires: 365 });
+	};
+
+	/**
+	 * unbind events, remove banner element
+	 * @private
+     */
+	CookiesPolicy.prototype.destroy_ = function() {
+		this.$acceptButton.off();
+		this.$banner.fadeOut(function() {
+			this.remove();
+		});
+	};
+
+	var API = {};
+
+    /**
+     * plugin go live
+     * @param value - first param - decides, which action shall be executed
+     * 		if object - apply plugin with these settings to an selector's elements, if they are clean (plugin not applied yet)
+     * 		if string && in API object - run method named as this value with all args[index > 0]
+     * @return {*}
+     */
+    $.fn[PLUGIN_NAME] = function (value) {
+        var args = arguments;
+
+        return this.each(function () {
+            var $this = $(this);
+
+            // get plugin instance
+            var plugin = $this.data('plugin_' + PLUGIN_NAME);
+
+            // if there's not, create one
+            if (!plugin) {
+                plugin = new CookiesPolicy(this, value);
+                $this.data('plugin_' + PLUGIN_NAME, plugin);
+            }
+            // if there is and first parameter is in predefined API methods, call it with rest of params
+            else if (API[value]) {
+                plugin[value].apply(plugin, Array.prototype.slice.call(args, 1));
+            }
+        });
+    };
+
+})( jQuery, window, document );

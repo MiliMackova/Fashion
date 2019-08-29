@@ -1,0 +1,36 @@
+jQuery.fn.socialShare = function() {
+    var urls = [];
+    urls['fb'] = "http://www.facebook.com/sharer/sharer.php?u=${url}&t=${title}";
+    urls['twitter'] = "http://twitter.com/?status=${title}";
+    urls['gplus'] = "https://plus.google.com/share?url=${url}";
+    urls['linkedin'] = "http://www.linkedin.com/shareArticle?mini=true&url=${url}&title=${title}";
+
+    jQuery(this).bind('click', function(e) {
+        e.preventDefault();
+        var type = jQuery(this).data('socialNetwork');
+        var pageurl = String(document.URL).replace('?back=1', '');
+        var pagename = document.title;
+
+        var title = '', url = '';
+
+        switch (type) {
+            case 'fb' :
+                url = encodeURIComponent(pageurl);
+                title = encodeURIComponent(pagename);
+                break;
+            case 'twitter':
+                title = encodeURIComponent(pagename+': '+pageurl);
+                break;
+            case 'gplus':
+                url = encodeURIComponent(pageurl);
+                break;
+            case 'linkedin':
+                url = encodeURIComponent(pageurl);
+                title = encodeURIComponent(pagename);
+                break;
+            default:
+                break;
+        }
+        window.open(urls[type].replace(/\${url}/gi,url).replace(/\${title}/gi,title), 'social'+type);
+    });
+};

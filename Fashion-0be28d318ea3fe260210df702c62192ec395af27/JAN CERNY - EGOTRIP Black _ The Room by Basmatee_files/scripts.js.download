@@ -1,0 +1,229 @@
+(function($) {
+  // Cookies disclamer.
+  window.addEventListener('load', function(){
+  window.cookieconsent.initialise({
+    'palette': {
+      'popup': {
+        'background': '#edeff5',
+        'text': '#838391'
+      },
+      'button': {
+        'background': '#4b81e8'
+      }
+    },
+    'position': 'bottom-left',
+    'content': {
+      'message': 'Tato stránka používá cookies, aby poskytla příjemnější užívání webových stránek a ke zlepšení služeb, které Vám jsou k dispozici.',
+      'dismiss': 'OK!',
+      'link': 'Chci vědět více'
+    }
+  })});
+
+  $(document).ready(function() {
+    // Image overlay
+    var overlay = $('.big-image-overlay');
+    var overlay_active = 0;
+    var overlay_images = [];
+    var overlay_thumbnails = [];
+
+    if (overlay.length) {
+      overlay_images = overlay.find('.overlay-full img');
+      overlay_thumbnails = overlay.find('.overlay-thumbnails img');
+
+      // Display big image when small one is clicked
+      overlay_thumbnails.each(function(i) {
+        $(this).click(function() {
+          overlay_display_image(i);
+
+          return false;
+        });
+      });
+
+      // Close button
+      overlay.find('.overlay-close').click(function() {
+        overlay_hide();
+
+        return false;
+      });
+
+      // Escape button
+      document.onkeydown = function(evt) {
+        evt = evt || window.event;
+
+        if (evt.keyCode == 27) {
+          overlay_hide();
+        }
+      };
+
+      // Next button
+      overlay.find('.overlay-next').click(function() {
+        overlay_display_image(overlay_active + 1);
+
+        return false;
+      });
+
+      // Prev button
+      overlay.find('.overlay-prev').click(function() {
+        overlay_display_image(overlay_active - 1);
+
+        return false;
+      });
+    }
+
+    function overlay_display (i) {
+      var offset = $('#logo').offset().top + 110;
+
+      overlay
+        .fadeIn()
+        .offset({ top: offset })
+        .css('height', $(document).height() - offset );
+
+      overlay_display_image(i);
+    }
+
+    function overlay_hide () {
+      overlay.fadeOut();
+    }
+
+    function overlay_display_image(i) {
+      if (i < 0) i = overlay_images.length - 1;
+      if (i > overlay_images.length - 1) i = 0;
+
+      if (i != overlay_active) {
+        $(overlay_images[overlay_active]).removeClass('active');
+        $(overlay_images[i]).addClass('active');
+        overlay_active = i;
+      }
+    }
+
+    // Frontpage slideshow
+    var slider = $('.event-slider')
+
+    if (slider.length) {
+        slider.bxSlider({
+          auto: true,
+          autoHover: true,
+          controls: true,
+          pager: false,
+          pause: 5000,
+          hideControlOnEnd: false,
+          mode: 'fade',
+          prevText: '<span class="BASMATEE_WEB_PROPRIETY_SIPKA_bila2"></span>',
+          nextText: '<span class="BASMATEE_WEB_PROPRIETY_SIPKA_bila"></span>',
+          speed: 400
+        });
+    }
+
+    // Frontpage news
+    $('.view-basmatee-news > .view-content').freetile();
+    $('.view-basmatee-news > .view-content > .views-row').each(function() {
+      var body = $(this).find('.view-basmatee-news-body-wrapper');
+      var row  = $(this);
+
+      row.hoverIntent({
+        over: function() {
+          body.fadeIn();
+          row.addClass('active');
+        },
+        out: function() {
+          body.hide();
+          row.removeClass('active');
+        },
+        timeout: 100
+      });
+    });
+
+    // Making images clickable on mobile where the text overlay is hidden
+    $('.view-basmatee-news .views-row').each(function() {
+      var $row = $(this);
+
+      $row.find('.text-not-hidden img').click(function() {
+        if ($('body').hasClass('responsive-layout-mobile')) {
+          window.location = $row.find('a').attr('href');
+        }
+      });
+    });
+
+    // Image thumbnails in node product and node page
+    var images_medium = $('.field-product-images-preview img, .field-page-images-preview img');
+
+    // Display overlay when medium image is clicked
+    if (overlay.length) {
+      images_medium.each(function(i) {
+        $(this).click(function() { overlay_display(i); });
+      });
+    }
+
+    // Display medium image when small is hovered by mouse
+    // Or overlay when small is clicked
+    if (images_medium.length > 1) {
+      var images_thumbnail = $('.field-name-field-product-images a, .field-name-field-page-images a');
+
+      images_thumbnail.each(function(i) {
+        var preview = $(images_medium[i]);
+
+        $(this)
+          .mouseover(function() {
+            images_medium.hide();
+            preview.fadeIn();
+          })
+          .click(function() {
+            overlay_display(i);
+
+            return false;
+          });
+      });
+    }
+
+    // Mark terms of current node in menu
+    var node = $('.node-product-display-full');
+    if (node.length) {
+      $('.view-basmatee-product-page-categories .term-name').each(function() {
+        var tid = $(this).attr('data-tid');
+
+        if (node.hasClass('term-' + tid)) {
+          $(this).parent().addClass('active');
+        }
+      });
+    }
+
+    // Display stock info onhover in catalog
+    var view = $('.view-taxonomy-term');
+    if (view.length) {
+      view.find('article').each(function() {
+        var product = $(this);
+        var nid = product.attr('data-nid');
+        var stock = $('.view-products-stock-' + nid);
+
+        product.hoverIntent(
+          function() {
+            stock.prependTo(product.find('.field-name-field-product-images'));
+            stock.fadeIn();
+          },
+          function() {
+            stock.fadeOut();
+          }
+        );
+      });
+    }
+
+    // Product list - changes image on mouse over.
+    $('.node-product-display-product-list').each(function() {
+      var first  = $(this).find('.field-name-field-product-images:nth-child(2)'),
+          second = $(this).find('.field-name-field-product-images:nth-child(3)'); 
+
+      if (!second.length) {
+        return;
+      }
+
+      second.hide();
+
+      over = function() {
+        first.toggle();
+        second.toggle();
+      };
+
+      $(this).mouseover(over).mouseout(over);
+    });
+  });
+})(jQuery);
